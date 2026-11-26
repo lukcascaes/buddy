@@ -1,12 +1,13 @@
 //! Arquivo de configuração do Buddy.
 //!
 //! Fica em  %APPDATA%\com.buddy.desktop\config.toml  (criado na primeira execução).
-//! Pode ser aberto e recarregado pelo ícone da bandeja, sem reiniciar o app.
+//! Pode ser editado pela janela de Configurações (bandeja → Configurações…)
+//! ou à mão, como opção avançada.
 //!
-//! Por que o Rust lê o arquivo (e não o TypeScript)?
+//! Por que o Rust lê E grava o arquivo (e não o TypeScript)?
 //! Porque parte da config é usada SÓ no Rust e é sensível: a URL do Ollama e o
-//! buscador. Se viessem do front, um bug no front poderia mandar o Rust acessar
-//! qualquer endereço. Assim o front só LÊ a config, nunca a define.
+//! buscador. O front pode PEDIR para salvar (`salvar_config`), mas tudo passa por
+//! `validar` aqui antes de valer. Um bug no front não consegue gravar um valor perigoso.
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -21,6 +22,8 @@ pub struct Config {
     pub ollama_url: String,
     pub modelo: String,
     pub buscador: String,
+    /// Para onde o "Sim" leva: "youtube_tocar" | "youtube_busca" | "web".
+    pub destino_sugestoes: String,
     pub intervalo_entre_falas_seg: u64,
     pub silencio_apos_recusa_min: u64,
     pub estabilizar_seg: u64,
@@ -37,6 +40,7 @@ impl Default for Config {
             ollama_url: "http://localhost:11434".into(),
             modelo: "qwen2.5:7b".into(),
             buscador: "https://www.google.com/search".into(),
+            destino_sugestoes: "youtube_tocar".into(),
             intervalo_entre_falas_seg: 180,
             silencio_apos_recusa_min: 60,
             estabilizar_seg: 4,
@@ -48,43 +52,75 @@ impl Default for Config {
     }
 }
 
-/// Arquivo criado na primeira execução. Os valores TÊM que bater com o
-/// `Default` acima (há um teste lá embaixo que garante isso).
-const ARQUIVO_PADRAO: &str = r#"# Configuração do Buddy
-# Depois de editar, salve e use "Recarregar configuração" no ícone da bandeja.
+/// Monta o texto do arquivo, COM comentários, a partir dos valores.
+///
+/// Por que não `toml::to_string(&cfg)`? Ele gera só `chave = valor`, sem os
+/// comentários que explicam cada opção. Como a janela de Configurações grava o
+/// arquivo, cada salvamento apagaria as explicações. Aqui o "molde" é fixo e só
+/// os valores mudam.
+///
+/// `toml::Value::...to_string()` cuida das aspas e de escapar caracteres
+/// especiais (um título com " ou \ não quebra o arquivo).
+fn gerar_arquivo(c: &Config) -> String {
+    let texto = |s: &str| toml::Value::String(s.to_string()).to_string();
+    let lista = |v: &[String]| {
+        toml::Value::Array(v.iter().map(|s| toml::Value::String(s.clone())).collect()).to_string()
+    };
+
+    format!(
+        r#"# Configuração do Buddy
+# O jeito fácil de mudar isto é pela janela: ícone da bandeja → Configurações…
+# Editando à mão: salve e use "Recarregar do arquivo" na janela de Configurações.
 # Se apagar uma linha, o valor padrão é usado.
 
 # --- IA (Ollama) ---
-ollama_url = "http://localhost:11434"
+ollama_url = {ollama_url}
 # Qualquer modelo baixado com "ollama pull". Ex.: "llama3.2:3b" (mais leve)
-modelo = "qwen2.5:7b"
+modelo = {modelo}
 
-# --- Ação "abrir busca" ---
-# Precisa ser https. O texto vai no parâmetro ?q=
+# --- Ação "abrir busca" (o que o "Sim" faz) ---
+# "youtube_tocar" = abre o 1º vídeo do YouTube para a sugestão (se falhar, abre a busca)
+# "youtube_busca" = abre a busca no YouTube
+# "web"           = abre a busca no buscador abaixo
+destino_sugestoes = {destino}
+# Buscador do modo "web". Precisa ser https. O texto vai no parâmetro ?q=
 # Ex.: "https://duckduckgo.com/" ou "https://www.bing.com/search"
-buscador = "https://www.google.com/search"
+buscador = {buscador}
 
 # --- Frequência ---
 # Tempo mínimo entre duas falas automáticas (clicar no Buddy ignora isso)
-intervalo_entre_falas_seg = 180
+intervalo_entre_falas_seg = {intervalo}
 # Depois de "Agora não", não volta ao MESMO assunto por este tempo
-silencio_apos_recusa_min = 60
+silencio_apos_recusa_min = {silencio}
 # O contexto precisa ficar parado este tempo antes de ele pensar
-estabilizar_seg = 4
+estabilizar_seg = {estabilizar}
 # De quanto em quanto tempo ele olha a janela ativa e a mídia
-leitura_contexto_seg = 2
+leitura_contexto_seg = {leitura}
 # Quanto tempo o balão fica na tela (pausa com o mouse em cima)
-balao_seg = 12
+balao_seg = {balao}
 
 # --- Privacidade ---
 # O Buddy JÁ ignora sempre (lista embutida, não dá para remover):
 #   WhatsApp, Discord, Telegram, Signal, Slack, Teams, Outlook/Email/Thunderbird,
 #   gerenciadores de senha, bancos, Gmail/Hotmail, gov.br e abas anônimas.
 # Aqui você só ACRESCENTA. Ex.: apps_ignorados = ["Spotify.exe"]
-apps_ignorados = []
+apps_ignorados = {apps}
 # Trechos de título (sem diferenciar maiúsculas). Ex.: ["Projeto Secreto", "Notion"]
-titulos_ignorados = []
-"#;
+titulos_ignorados = {titulos}
+"#,
+        ollama_url = texto(&c.ollama_url),
+        modelo = texto(&c.modelo),
+        buscador = texto(&c.buscador),
+        destino = texto(&c.destino_sugestoes),
+        intervalo = c.intervalo_entre_falas_seg,
+        silencio = c.silencio_apos_recusa_min,
+        estabilizar = c.estabilizar_seg,
+        leitura = c.leitura_contexto_seg,
+        balao = c.balao_seg,
+        apps = lista(&c.apps_ignorados),
+        titulos = lista(&c.titulos_ignorados),
+    )
+}
 
 /// Guardado no Tauri com `app.manage(...)` e acessado nos comandos via `State`.
 /// `RwLock` = vários podem LER ao mesmo tempo; para ESCREVER (recarregar),
@@ -105,6 +141,12 @@ impl EstadoConfig {
     pub fn ler(&self) -> Config {
         self.atual.read().map(|c| c.clone()).unwrap_or_default()
     }
+
+    fn trocar(&self, nova: Config) {
+        if let Ok(mut atual) = self.atual.write() {
+            *atual = nova;
+        }
+    }
 }
 
 fn carregar(caminho: &Path) -> Config {
@@ -112,7 +154,7 @@ fn carregar(caminho: &Path) -> Config {
         if let Some(pasta) = caminho.parent() {
             let _ = std::fs::create_dir_all(pasta);
         }
-        if let Err(e) = std::fs::write(caminho, ARQUIVO_PADRAO) {
+        if let Err(e) = std::fs::write(caminho, gerar_arquivo(&Config::default())) {
             eprintln!("[buddy] não consegui criar {}: {e}", caminho.display());
         }
     }
@@ -128,6 +170,9 @@ fn carregar(caminho: &Path) -> Config {
     };
     validar(cfg)
 }
+
+/// Valores aceitos em `destino_sugestoes`. Qualquer outra coisa vira o padrão.
+pub const DESTINOS: [&str; 3] = ["youtube_tocar", "youtube_busca", "web"];
 
 /// Corrige valores absurdos ou perigosos.
 fn validar(mut c: Config) -> Config {
@@ -149,27 +194,48 @@ fn validar(mut c: Config) -> Config {
         c.buscador = padrao.buscador.clone();
     }
 
-    if c.modelo.trim().is_empty() {
+    if !DESTINOS.contains(&c.destino_sugestoes.as_str()) {
+        c.destino_sugestoes = padrao.destino_sugestoes.clone();
+    }
+
+    c.modelo = c.modelo.trim().to_string();
+    if c.modelo.is_empty() || c.modelo.len() > 100 {
         c.modelo = padrao.modelo;
     }
 
     // Limites para ninguém transformar o Buddy num spammer (ou num peso para o PC).
     c.intervalo_entre_falas_seg = c.intervalo_entre_falas_seg.max(30);
+    c.silencio_apos_recusa_min = c.silencio_apos_recusa_min.clamp(1, 24 * 60);
     c.leitura_contexto_seg = c.leitura_contexto_seg.clamp(1, 60);
     c.estabilizar_seg = c.estabilizar_seg.min(60);
     c.balao_seg = c.balao_seg.clamp(3, 120);
+
+    // Listas: sem itens vazios (um "" bloquearia TUDO), sem repetidos, com limite.
+    c.apps_ignorados = limpar_lista(c.apps_ignorados);
+    c.titulos_ignorados = limpar_lista(c.titulos_ignorados);
     c
 }
 
-/// Relê o arquivo e avisa o front (evento "config-alterada").
-pub fn recarregar(app: &AppHandle) {
+fn limpar_lista(itens: Vec<String>) -> Vec<String> {
+    let mut saida: Vec<String> = Vec::new();
+    for item in itens {
+        let item: String = item.trim().chars().filter(|c| !c.is_control()).take(100).collect();
+        let repetido = saida.iter().any(|s| s.eq_ignore_ascii_case(&item));
+        if !item.is_empty() && !repetido && saida.len() < 100 {
+            saida.push(item);
+        }
+    }
+    saida
+}
+
+/// Relê o arquivo e avisa todas as janelas (evento "config-alterada").
+pub fn recarregar(app: &AppHandle) -> Config {
     let estado = app.state::<EstadoConfig>();
     let nova = carregar(&estado.caminho);
-    if let Ok(mut atual) = estado.atual.write() {
-        *atual = nova.clone();
-    }
+    estado.trocar(nova.clone());
     println!("[buddy] configuração recarregada: {nova:?}");
-    let _ = app.emit("config-alterada", nova);
+    let _ = app.emit("config-alterada", nova.clone());
+    nova
 }
 
 /// Abre o arquivo no programa que o Windows associa a .toml (no seu caso, VS Code).
@@ -197,14 +263,54 @@ pub fn get_config(estado: tauri::State<'_, EstadoConfig>) -> Config {
     estado.ler()
 }
 
+/// Chamado pela janela de Configurações. Valida, grava o arquivo, troca a config
+/// em uso e avisa todas as janelas. Devolve a config COMO FICOU (o front mostra
+/// o valor corrigido, se `validar` mudou algo).
+#[tauri::command]
+pub fn salvar_config(app: AppHandle, nova: Config) -> Result<Config, String> {
+    let estado = app.state::<EstadoConfig>();
+    let nova = validar(nova);
+    std::fs::write(&estado.caminho, gerar_arquivo(&nova))
+        .map_err(|e| format!("não consegui gravar a configuração: {e}"))?;
+    estado.trocar(nova.clone());
+    let _ = app.emit("config-alterada", nova.clone());
+    Ok(nova)
+}
+
+#[tauri::command]
+pub fn recarregar_config(app: AppHandle) -> Config {
+    recarregar(&app)
+}
+
+#[tauri::command]
+pub fn abrir_arquivo_config(app: AppHandle) {
+    abrir_no_editor(&app);
+}
+
 #[cfg(test)]
 mod testes {
     use super::*;
 
     #[test]
-    fn arquivo_padrao_bate_com_default() {
-        let lido: Config = toml::from_str(ARQUIVO_PADRAO).unwrap();
-        assert_eq!(lido, Config::default());
+    fn arquivo_gerado_volta_igual() {
+        // Grava e lê de volta: tem que dar exatamente a mesma config.
+        let padrao = Config::default();
+        assert_eq!(toml::from_str::<Config>(&gerar_arquivo(&padrao)).unwrap(), padrao);
+
+        let diferente = Config {
+            modelo: "llama3.2:3b".into(),
+            apps_ignorados: vec!["Spotify.exe".into()],
+            // Aspas e barra invertida não podem quebrar o arquivo:
+            titulos_ignorados: vec![r#"Projeto "Secreto" \ v2"#.into()],
+            intervalo_entre_falas_seg: 600,
+            ..Config::default()
+        };
+        assert_eq!(toml::from_str::<Config>(&gerar_arquivo(&diferente)).unwrap(), diferente);
+    }
+
+    #[test]
+    fn arquivo_gerado_mantem_comentarios() {
+        assert!(gerar_arquivo(&Config::default()).contains("# --- Privacidade ---"));
     }
 
     #[test]
@@ -212,12 +318,23 @@ mod testes {
         let c = validar(Config {
             buscador: "file:///C:/Windows/System32/calc.exe".into(),
             ollama_url: "javascript:alert(1)".into(),
+            destino_sugestoes: "rodar_programa".into(),
             intervalo_entre_falas_seg: 1,
             ..Config::default()
         });
         assert_eq!(c.buscador, Config::default().buscador);
         assert_eq!(c.ollama_url, Config::default().ollama_url);
         assert_eq!(c.intervalo_entre_falas_seg, 30);
+        assert_eq!(c.destino_sugestoes, "youtube_tocar");
+    }
+
+    #[test]
+    fn listas_sao_limpas() {
+        let c = validar(Config {
+            apps_ignorados: vec!["  ".into(), "Spotify.exe".into(), "spotify.EXE".into()],
+            ..Config::default()
+        });
+        assert_eq!(c.apps_ignorados, vec!["Spotify.exe".to_string()]);
     }
 
     #[test]

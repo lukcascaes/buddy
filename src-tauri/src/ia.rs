@@ -25,6 +25,11 @@ struct PedidoChat<'a> {
     format: serde_json::Value,
     /// Quanto tempo o modelo fica carregado na memória depois do uso.
     keep_alive: &'a str,
+    /// Modelos que "pensam antes de responder" (ex.: qwen3) fazem isso POR PADRÃO
+    /// no Ollama. Medido: com o raciocínio ligado, cada fala levava ~15 s e o
+    /// raciocínio gastava o limite de tokens, cortando o JSON (2 de 24 válidas).
+    /// Desligado sempre; modelos sem esse modo simplesmente ignoram.
+    think: bool,
     options: Opcoes,
 }
 
@@ -87,6 +92,7 @@ pub async fn ask_llm(
         stream: false,
         format: formato,
         keep_alive: "10m",
+        think: false,
         options: Opcoes { temperature: 0.7, num_predict: 200 },
     };
 
@@ -125,4 +131,59 @@ pub async fn ollama_ok(estado: tauri::State<'_, EstadoConfig>) -> Result<bool, S
         .await
         .map(|r| r.status().is_success())
         .unwrap_or(false))
+}
+
+#[derive(Deserialize)]
+struct RespostaTags {
+    models: Vec<ModeloOllama>,
+}
+
+#[derive(Deserialize)]
+struct ModeloOllama {
+    name: String,
+}
+
+/// Modelos baixados no Ollama (o que aparece em `ollama list`).
+/// Usado pela janela de Configurações para escolher o modelo numa lista,
+/// em vez de digitar o nome e errar uma letra.
+#[tauri::command]
+pub async fn listar_modelos(estado: tauri::State<'_, EstadoConfig>) -> Result<Vec<String>, String> {
+    let url = format!("{}/api/tags", estado.ler().ollama_url);
+    let cliente = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let tags: RespostaTags = cliente
+        .get(url)
+        .send()
+        .await
+        .map_err(|_| "o Ollama não está respondendo".to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut nomes: Vec<String> = tags.models.into_iter().map(|m| m.name).collect();
+    nomes.sort();
+    Ok(nomes)
+}
+
+/// Só para DEPURAR: o front manda suas linhas de log "[buddy] ..." para cá e
+/// elas aparecem no terminal do `npm run tauri dev`. Útil porque o console do
+/// WebView2 só é visível com o DevTools aberto.
+/// (Em release não há terminal, então isso não aparece em lugar nenhum.)
+#[tauri::command]
+pub fn log_front(linha: String) {
+    let linha: String = linha.chars().take(2000).collect();
+    println!("[front] {linha}");
+}
+
+#[cfg(test)]
+mod testes {
+    /// Regressão do "me deu um branco": a ordem das chaves do esquema TEM que
+    /// chegar ao Ollama como o front mandou (falar → fala → acao).
+    #[test]
+    fn esquema_mantem_ordem_das_chaves() {
+        let original = r#"{"properties":{"falar":1,"fala":2,"acao":3}}"#;
+        let valor: serde_json::Value = serde_json::from_str(original).unwrap();
+        assert_eq!(serde_json::to_string(&valor).unwrap(), original);
+    }
 }

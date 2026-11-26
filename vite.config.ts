@@ -15,5 +15,10 @@ export default defineConfig({
   build: {
     // O WebView2 do Windows é Chromium moderno, então podemos gerar JS moderno.
     target: "chrome105",
+    // Duas páginas: o Buddy (index.html) e a janela de Configurações.
+    // Sem isto, o build só incluiria o index.html.
+    rollupOptions: {
+      input: { buddy: "index.html", config: "config.html" },
+    },
   },
 });

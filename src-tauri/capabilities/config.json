@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "config",
+  "description": "Janela de Configurações: só o básico (eventos e comandos do app). Nada de mexer em janelas, click-through etc.",
+  "windows": ["config"],
+  "permissions": ["core:default"]
+}

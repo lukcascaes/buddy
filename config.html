@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Buddy · Configurações</title>
+    <link rel="stylesheet" href="/src/configuracoes/estilo.css" />
+    <script type="module" src="/src/configuracoes/main.ts"></script>
+  </head>
+  <body>
+    <!--
+      Janela de Configurações. Cada <section class="tela"> é uma "página";
+      o main.ts mostra uma de cada vez (sem framework: só o atributo hidden).
+      Todo texto que vem de fora (nomes de apps, modelos) entra com textContent.
+    -->
+    <main class="app">
+      <!-- ===================== Início ===================== -->
+      <section class="tela" id="tela-inicio">
+        <header class="topo">
+          <h1 class="logo">buddy<span>.</span></h1>
+          <p class="sub">Seu pequeno companheiro de mesa</p>
+        </header>
+
+        <div class="cartao-status">
+          <svg viewBox="9 7 76 76" width="52" height="52" aria-hidden="true">
+            <path d="M13 55 C13 26 27 13 47 13 C67 13 81 26 81 55 Q81 78 47 78 Q13 78 13 55Z" fill="#F2EFE8" />
+            <rect x="32" y="37" width="6" height="13" rx="3" fill="#171717" />
+            <rect x="56" y="37" width="6" height="13" rx="3" fill="#171717" />
+            <circle id="mini-led" cx="69" cy="61" r="3" fill="#FF7849" />
+          </svg>
+          <div>
+            <strong>Oi, tô aqui.</strong>
+            <p>Pronto quando você precisar.</p>
+            <p class="estado"><span class="bolinha" id="bolinha"></span><span id="estado-texto">Verificando…</span></p>
+          </div>
+        </div>
+
+        <ul class="lista">
+          <li>
+            <button class="linha" data-ir="visao" type="button">
+              <svg class="icone" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>
+              <span class="rotulo">O que eu vejo</span>
+              <span class="valor" id="valor-visao"></span>
+              <span class="seta">›</span>
+            </button>
+          </li>
+          <li>
+            <button class="linha" data-ir="memoria" type="button">
+              <svg class="icone" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 1V5a3 3 0 0 0-3-1Z" /><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 1" /></svg>
+              <span class="rotulo">Memória</span>
+              <span class="valor">Só neste PC</span>
+              <span class="seta">›</span>
+            </button>
+          </li>
+          <li>
+            <label class="linha">
+              <svg class="icone" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" /></svg>
+              <span class="rotulo">Modo silencioso</span>
+              <input type="checkbox" class="chave" id="silencioso" />
+            </label>
+          </li>
+          <li>
+            <button class="linha" data-ir="ia" type="button">
+              <svg class="icone" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4" /></svg>
+              <span class="rotulo">IA</span>
+              <span class="valor" id="valor-ia"></span>
+              <span class="seta">›</span>
+            </button>
+          </li>
+          <li>
+            <button class="linha" data-ir="sugestoes" type="button">
+              <svg class="icone" viewBox="0 0 24 24"><polygon points="7 4 20 12 7 20 7 4" /></svg>
+              <span class="rotulo">Sugestões</span>
+              <span class="valor" id="valor-sugestoes"></span>
+              <span class="seta">›</span>
+            </button>
+          </li>
+          <li>
+            <button class="linha" data-ir="frequencia" type="button">
+              <svg class="icone" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+              <span class="rotulo">Frequência</span>
+              <span class="valor" id="valor-frequencia"></span>
+              <span class="seta">›</span>
+            </button>
+          </li>
+        </ul>
+
+        <footer class="rodape">
+          <span>Buddy v0.1.0 — Feito pra não atrapalhar.</span>
+          <span class="avancado">
+            Arquivo:
+            <button type="button" class="link" id="abrir-arquivo">abrir</button> ·
+            <button type="button" class="link" id="recarregar-arquivo">recarregar</button>
+          </span>
+        </footer>
+      </section>
+
+      <!-- ===================== O que eu vejo ===================== -->
+      <section class="tela" id="tela-visao" hidden>
+        <button class="voltar" type="button">‹ Voltar</button>
+        <h2>O que eu vejo</h2>
+        <p class="explica">
+          Eu leio o título da janela ativa e a música que está tocando. Algumas coisas eu
+          <strong>nunca</strong> vejo, nem com o modo silencioso desligado.
+        </p>
+
+        <details class="fixos">
+          <summary id="resumo-fixos">Sempre escondidos</summary>
+          <p class="dica">Programas:</p>
+          <ul class="chips" id="fixos-apps"></ul>
+          <p class="dica">Sites e títulos que contêm:</p>
+          <ul class="chips" id="fixos-titulos"></ul>
+        </details>
+
+        <h3>Programas que você quer esconder</h3>
+        <ul class="chips editavel" id="lista-apps"></ul>
+        <form class="adicionar" id="form-apps">
+          <input name="item" placeholder="ex.: Spotify.exe" maxlength="100" autocomplete="off" />
+          <button type="submit">Adicionar</button>
+        </form>
+        <p class="dica">Nome do .exe (Gerenciador de Tarefas → Detalhes).</p>
+
+        <h3>Títulos que você quer esconder</h3>
+        <ul class="chips editavel" id="lista-titulos"></ul>
+        <form class="adicionar" id="form-titulos">
+          <input name="item" placeholder="ex.: Projeto Secreto" maxlength="100" autocomplete="off" />
+          <button type="submit">Adicionar</button>
+        </form>
+        <p class="dica">Se o título da janela contiver esse texto, eu não vejo.</p>
+      </section>
+
+      <!-- ===================== Memória ===================== -->
+      <section class="tela" id="tela-memoria" hidden>
+        <button class="voltar" type="button">‹ Voltar</button>
+        <h2>Memória</h2>
+        <p class="explica">
+          Eu lembro do que você fez nos últimos minutos (quais programas, quais músicas) e do
+          que eu já disse, pra não ser repetitivo.
+        </p>
+        <ul class="fatos">
+          <li>Fica só na memória do PC: nada vai pro disco nem pra internet.</li>
+          <li>Janelas escondidas não entram.</li>
+          <li>Tudo some quando eu fecho.</li>
+        </ul>
+        <button type="button" class="botao" id="esquecer">Esquecer tudo agora</button>
+        <p class="aviso" id="aviso-memoria" hidden>Pronto, esqueci. 🫧</p>
+      </section>
+
+      <!-- ===================== IA ===================== -->
+      <section class="tela" id="tela-ia" hidden>
+        <button class="voltar" type="button">‹ Voltar</button>
+        <h2>IA</h2>
+        <p class="explica">Eu penso com um modelo que roda no seu PC, pelo Ollama. Nada vai pra internet.</p>
+        <label class="campo">
+          <span>Modelo</span>
+          <select id="modelo"></select>
+        </label>
+        <p class="dica" id="dica-ia">Modelos maiores são mais espertos e mais lentos.</p>
+      </section>
+
+      <!-- ===================== Sugestões ===================== -->
+      <section class="tela" id="tela-sugestoes" hidden>
+        <button class="voltar" type="button">‹ Voltar</button>
+        <h2>Sugestões</h2>
+        <p class="explica">
+          Quando eu sugiro algo (tipo um set parecido) e você diz <strong>Sim</strong>, eu:
+        </p>
+        <label class="campo">
+          <span>Ao aceitar uma sugestão</span>
+          <select id="destino">
+            <option value="youtube_tocar">Toco o vídeo no YouTube</option>
+            <option value="youtube_busca">Abro a busca no YouTube</option>
+            <option value="web">Abro a busca no navegador</option>
+          </select>
+        </label>
+        <p class="dica">
+          Se tiver música tocando, eu pauso antes. "Toco o vídeo" abre o primeiro resultado do
+          YouTube; se não der, abro a busca.
+        </p>
+      </section>
+
+      <!-- ===================== Frequência ===================== -->
+      <section class="tela" id="tela-frequencia" hidden>
+        <button class="voltar" type="button">‹ Voltar</button>
+        <h2>Frequência</h2>
+        <label class="campo">
+          <span>Puxar assunto no máximo a cada</span>
+          <select id="intervalo">
+            <option value="60">1 minuto</option>
+            <option value="180">3 minutos</option>
+            <option value="300">5 minutos</option>
+            <option value="600">10 minutos</option>
+            <option value="1800">30 minutos</option>
+            <option value="3600">1 hora</option>
+          </select>
+        </label>
+        <label class="campo">
+          <span>Depois de um "Agora não", não volto ao assunto por</span>
+          <select id="silencio">
+            <option value="15">15 minutos</option>
+            <option value="60">1 hora</option>
+            <option value="180">3 horas</option>
+            <option value="1440">1 dia</option>
+          </select>
+        </label>
+        <label class="campo">
+          <span>O balão fica na tela por</span>
+          <select id="balao">
+            <option value="8">8 segundos</option>
+            <option value="12">12 segundos</option>
+            <option value="20">20 segundos</option>
+            <option value="30">30 segundos</option>
+          </select>
+        </label>
+        <p class="dica">Clicar em mim sempre funciona, independente disso.</p>
+      </section>
+
+      <!-- Aviso flutuante de "Salvo" -->
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </main>
+  </body>
+</html>

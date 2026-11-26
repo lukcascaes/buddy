@@ -48,17 +48,19 @@ body {
   gap: 8px;
 }
 
-/* ---------------- Balão ---------------- */
+/* ---------------- Balão ----------------
+   Compacto de propósito (inspirado no vídeo de referência): o Buddy comenta,
+   não abre uma janela. Menos área = menos coisa cobrindo o que você faz. */
 
 .balao {
   position: relative;
-  max-width: 270px;
-  padding: 12px 14px 10px;
-  border-radius: 16px;
+  max-width: 230px;
+  padding: 8px 11px 7px;
+  border-radius: 14px;
   background: var(--balao-fundo);
   color: var(--balao-texto);
   border: 1px solid var(--balao-borda);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
   margin-right: 30px;
 
   /* Escondido por padrão. Usamos opacity/transform (e não display:none)
@@ -82,10 +84,10 @@ body {
 .balao::after {
   content: "";
   position: absolute;
-  right: 26px;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
+  right: 28px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
   background: var(--balao-fundo);
   border-right: 1px solid var(--balao-borda);
   border-bottom: 1px solid var(--balao-borda);
@@ -93,16 +95,16 @@ body {
 }
 
 .balao-texto {
-  margin: 0 0 10px;
-  font-size: 14px;
-  line-height: 1.4;
+  margin: 0 0 7px;
+  font-size: 13px;
+  line-height: 1.35;
   /* Quebra palavras muito longas (ex.: título de janela gigante) em vez de estourar o balão. */
   overflow-wrap: anywhere;
 }
 
 .balao-detalhe {
-  margin: -4px 0 10px;
-  font-size: 12px;
+  margin: -3px 0 7px;
+  font-size: 11px;
   opacity: 0.7;
   overflow-wrap: anywhere;
 }
@@ -112,17 +114,17 @@ body {
 
 .balao-botoes {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
 .btn {
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   border: none;
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 4px 11px;
   cursor: pointer;
   transition:
     background 120ms ease,
@@ -157,8 +159,8 @@ body {
    recebe "animationend" e esconde o balão. Com o mouse em cima, a animação
    pausa, então o balão não some enquanto você está lendo. */
 .balao-tempo {
-  margin-top: 9px;
-  height: 3px;
+  margin-top: 7px;
+  height: 2px;
   border-radius: 3px;
   background: var(--cinza-btn);
   overflow: hidden;

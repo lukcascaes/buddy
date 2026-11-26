@@ -10,6 +10,8 @@ import type { ResumoMemoria } from "../memoria";
 import { formatoOllama, interpretarResposta, type Acao, type RespostaModelo } from "./esquema";
 import { montarPrompt, SISTEMA, type Mudanca } from "./prompt";
 
+export { ollamaNoAr } from "../ollama";
+
 /**
  * Pergunta ao modelo o que dizer sobre o contexto.
  * - Erro de rede/Ollama → lança exceção (quem chamou decide se avisa o usuário).
@@ -31,15 +33,7 @@ export async function pensar(
 }
 
 /** Executa uma ação. O Rust valida de novo (allowlist dupla). */
-export function executarAcao(acao: Acao): Promise<void> {
-  return invoke("executar_acao", { acao });
+export function executarAcao(acao: Acao, pausar: boolean): Promise<void> {
+  return invoke("executar_acao", { acao, pausar });
 }
 
-/** O Ollama está respondendo? (LED vermelho quando não.) Nunca lança erro. */
-export async function ollamaNoAr(): Promise<boolean> {
-  try {
-    return await invoke<boolean>("ollama_ok");
-  } catch {
-    return false;
-  }
-}

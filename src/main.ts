@@ -6,6 +6,8 @@
  * Fase 4: regras de frequência, "Agora não", não perturbe (bandeja) e config.
  */
 
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   aoMudarConfig,
@@ -21,7 +23,7 @@ import type { RespostaModelo } from "./ia/esquema";
 import type { Mudanca } from "./ia/prompt";
 import { iniciarClickThrough } from "./janela/clickThrough";
 import { posicionarNoCanto } from "./janela/posicao";
-import { Memoria } from "./memoria";
+import { Memoria, termos } from "./memoria";
 import { assuntoDe, Regras } from "./regras";
 import { Balao } from "./ui/balao";
 import { Personagem } from "./ui/personagem";
@@ -66,6 +68,13 @@ async function iniciar(): Promise<void> {
   // escutamos as mudanças.
   aplicarNaoPerturbe(await lerNaoPerturbe());
   await aoMudarNaoPerturbe(aplicarNaoPerturbe);
+
+  // "Esquecer tudo agora", vindo da janela de Configurações.
+  await listen("esquecer-memoria", () => {
+    memoria.limpar();
+    marcosDisparados.clear();
+    console.log("[buddy] memória apagada a pedido");
+  });
 
   await posicionarNoCanto();
 
@@ -113,6 +122,20 @@ async function iniciar(): Promise<void> {
   window.setInterval(() => void checarOllama(), 60_000);
 
   if (import.meta.env.DEV) {
+    // Depuração: toda linha "[buddy] ..." do console também vai para o terminal
+    // do `npm run tauri dev` (comando log_front no Rust). Assim dá para ver o
+    // que aconteceu sem abrir o DevTools.
+    for (const nivel of ["log", "warn"] as const) {
+      const original = console[nivel].bind(console);
+      console[nivel] = (...args: unknown[]) => {
+        original(...args);
+        if (typeof args[0] === "string" && args[0].startsWith("[buddy]")) {
+          const linha = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+          void invoke("log_front", { linha }).catch(() => {});
+        }
+      };
+    }
+
     // Para depurar no console:  await buddyContexto()  ou  buddyMemoria()
     const w = window as unknown as Record<string, unknown>;
     w.buddyContexto = obterContexto;
@@ -192,10 +215,11 @@ async function conversar(c: Contexto, mudanca: Mudanca, assunto: string, manual:
     };
     let resposta = await tentar();
     personagem.definirOffline(false); // respondeu: está no ar
-    // No clique você está esperando uma resposta: se a primeira foi descartada
-    // pelos filtros, vale uma segunda tentativa (~2s) antes do "me deu um branco".
-    // (Na fala automática não: ficar quieto é uma resposta ótima.)
-    if (manual && !resposta?.falar) resposta = await tentar();
+    // No clique você está esperando uma resposta: se foi descartada pelos
+    // filtros, tentamos de novo (~2s cada) antes do "me deu um branco".
+    // Medido no caso real: ~1 em 4 respostas cai num filtro; com 3 tentativas,
+    // o "branco" fica abaixo de 2%. (Na fala automática não: ficar quieto é ótimo.)
+    for (let i = 0; manual && !resposta?.falar && i < 2; i++) resposta = await tentar();
     if (!resposta || !resposta.falar) {
       personagem.humor("normal");
       if (manual) await dizer("Hmm… me deu um branco agora. Tenta de novo daqui a pouco?");
@@ -240,7 +264,7 @@ function filtrar(r: RespostaModelo, mudanca: Mudanca): RespostaModelo | null {
   if (!r.acao) {
     // Bug visto na prática: "Quer ouvir algo do mesmo estilo?" SEM ação, então o
     // balão mostrava uma pergunta com só um botão "Ok". Oferta sem ação = descarta.
-    if (/\bquer (ouvir|escutar|conhecer|ver|explorar|descobrir|testar|que eu)\b/i.test(r.fala)) {
+    if (/\bquer (ouvir|escutar|conhecer|ver|explorar|descobrir|testar|que eu|saber|assistir|curtir|conferir|dar uma)\b/i.test(r.fala)) {
       console.log(`[buddy] descartei oferta sem ação: "${r.fala}"`);
       return null;
     }
@@ -251,6 +275,14 @@ function filtrar(r: RespostaModelo, mudanca: Mudanca): RespostaModelo | null {
   // como "pausa para café", então nesse caso a fala fica, mas sem ação.
   if (mudanca === "tempo") return { ...r, acao: null };
 
+  // Sugestão do MESMO artista que está tocando: o prompt pede um diferente, mas
+  // o modelo nem sempre percebe (bug real: no YouTube o "artista" do Windows é o
+  // CANAL, e o artista de verdade estava no título: "MADEON - electric cleaners mix").
+  if (mesmoArtistaTocando(r.acao.consulta)) {
+    console.log(`[buddy] descartei sugestão do mesmo artista: "${r.acao.consulta}"`);
+    return null;
+  }
+
   // Sugestão de algo que você recusou/ignorou há pouco: descarta tudo.
   // (Só tirar a ação deixaria uma pergunta "Quer ouvir X?" sem botões.)
   if (memoria.jaRecusou(r.acao.consulta, Date.now())) {
@@ -258,6 +290,19 @@ function filtrar(r: RespostaModelo, mudanca: Mudanca): RespostaModelo | null {
     return null;
   }
   return r;
+}
+
+/**
+ * A sugestão é do artista que já está tocando? Olha o campo "artista" E o
+ * começo do título (antes de " - " ou " | "), que é onde o YouTube costuma
+ * colocar o artista. Compara só nomes (ignora "mix", "live", "set"...).
+ */
+function mesmoArtistaTocando(consulta: string): boolean {
+  const m = contextoAtual?.midia;
+  if (!m) return false;
+  const nomes = [m.artista, m.titulo.split(/s[-–—|]s/)[0]];
+  const nova = termos(consulta);
+  return nomes.some((n) => [...termos(n)].some((t) => nova.has(t)));
 }
 
 function dizer(texto: string) {
@@ -285,7 +330,18 @@ async function falar(r: RespostaModelo, assunto: string): Promise<void> {
   }
 
   const acao = r.acao;
-  const resposta = await balao.perguntar(r.fala, { detalhe: `🔎 ${acao.consulta}`, duracaoMs });
+  // Se tem música tocando, o "Sim" também pausa (como no vídeo que inspirou o Buddy).
+  // O balão AVISA antes: seu "Sim" vale para exatamente o que está escrito.
+  const pausar = contextoAtual?.midia?.tocando === true;
+  // O detalhe diz EXATAMENTE o que o "Sim" vai fazer (depende da config).
+  const oQue =
+    config.destino_sugestoes === "youtube_tocar"
+      ? `▶ toco "${acao.consulta}" no YouTube`
+      : config.destino_sugestoes === "youtube_busca"
+        ? `🔎 busco "${acao.consulta}" no YouTube`
+        : `🔎 busco "${acao.consulta}"`;
+  const detalhe = pausar ? `⏸ pauso a música · ${oQue}` : oQue;
+  const resposta = await balao.perguntar(r.fala, { detalhe, duracaoMs });
   console.log("[buddy] resposta do usuário:", resposta, acao);
   if (id !== conversaAtual) return; // foi substituída por outra conversa
 
@@ -295,7 +351,7 @@ async function falar(r: RespostaModelo, assunto: string): Promise<void> {
 
   if (resposta === "sim") {
     try {
-      await executarAcao(acao);
+      await executarAcao(acao, pausar);
       personagem.humor("feliz", 1200);
     } catch (erro) {
       console.warn("[buddy] ação falhou:", erro);

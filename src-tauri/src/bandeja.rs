@@ -1,6 +1,6 @@
 //! Ícone na bandeja do Windows (perto do relógio), com menu:
+//!   Configurações…
 //!   ☐ Não perturbe
-//!   Abrir configuração / Recarregar configuração
 //!   Sair
 //!
 //! O "Não perturbe" mora aqui no Rust (um AtomicBool) porque o menu é do Rust.
@@ -11,9 +11,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, Wry};
-
-use crate::config;
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
 
 /// `AtomicBool` = um bool que pode ser lido/escrito por várias threads
 /// sem precisar de lock. Perfeito para uma chave liga/desliga.
@@ -26,18 +24,15 @@ struct ItemNaoPerturbe(CheckMenuItem<Wry>);
 pub fn criar(app: &AppHandle) -> tauri::Result<()> {
     let nao_perturbe =
         CheckMenuItem::with_id(app, "nao_perturbe", "Não perturbe", true, false, None::<&str>)?;
-    let abrir = MenuItem::with_id(app, "abrir_config", "Abrir configuração", true, None::<&str>)?;
-    let recarregar =
-        MenuItem::with_id(app, "recarregar_config", "Recarregar configuração", true, None::<&str>)?;
+    let configuracoes =
+        MenuItem::with_id(app, "configuracoes", "Configurações…", true, None::<&str>)?;
     let sair = MenuItem::with_id(app, "sair", "Sair", true, None::<&str>)?;
 
     let menu = Menu::with_items(
         app,
         &[
+            &configuracoes,
             &nao_perturbe,
-            &PredefinedMenuItem::separator(app)?,
-            &abrir,
-            &recarregar,
             &PredefinedMenuItem::separator(app)?,
             &sair,
         ],
@@ -61,8 +56,7 @@ pub fn criar(app: &AppHandle) -> tauri::Result<()> {
                     .unwrap_or(false);
                 aplicar(app, ligado);
             }
-            "abrir_config" => config::abrir_no_editor(app),
-            "recarregar_config" => config::recarregar(app),
+            "configuracoes" => abrir_configuracoes(app),
             "sair" => app.exit(0),
             _ => {}
         })
@@ -88,4 +82,30 @@ pub fn get_nao_perturbe() -> bool {
 #[tauri::command]
 pub fn set_nao_perturbe(app: AppHandle, ligado: bool) {
     aplicar(&app, ligado);
+}
+
+/// Abre a janela de Configurações (ou traz para frente, se já estiver aberta).
+///
+/// A janela é criada sob demanda e destruída ao fechar: enquanto você não abre,
+/// ela não ocupa memória nenhuma (cada janela é um WebView2, ~50 MB).
+/// Atenção: no Windows, criar janela dentro de um COMANDO síncrono pode travar;
+/// aqui é chamada pelo menu da bandeja, onde isso não acontece.
+fn abrir_configuracoes(app: &AppHandle) {
+    if let Some(janela) = app.get_webview_window("config") {
+        let _ = janela.unminimize();
+        let _ = janela.show();
+        let _ = janela.set_focus();
+        return;
+    }
+    let resultado = WebviewWindowBuilder::new(app, "config", WebviewUrl::App("config.html".into()))
+        .title("Buddy · Configurações")
+        .inner_size(440.0, 640.0)
+        .resizable(false)
+        .maximizable(false)
+        .center()
+        .theme(Some(tauri::Theme::Dark))
+        .build();
+    if let Err(e) = resultado {
+        eprintln!("[buddy] não consegui abrir as configurações: {e}");
+    }
 }

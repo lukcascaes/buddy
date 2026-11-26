@@ -54,6 +54,8 @@ export interface ResumoMemoria {
   faixas_recentes: string[];
   /** O que o Buddy disse recentemente e como você reagiu. */
   suas_falas_recentes: { ha_min: number; fala: string; ofereceu?: string; reacao: Reacao | null }[];
+  /** Buscas que NÃO devem ser sugeridas agora (recusadas/ignoradas há pouco). */
+  nao_sugerir?: string[];
 }
 
 /**
@@ -62,10 +64,20 @@ export interface ResumoMemoria {
  */
 const PALAVRAS_GENERICAS = new Set([
   "live", "set", "mix", "dj", "playlist", "ao", "vivo", "musica", "musicas", "música",
-  "músicas", "de", "do", "da", "e", "the", "best", "of", "songs", "album", "álbum",
+  "músicas", "de", "do", "da", "dos", "das", "e", "the", "best", "of", "songs", "album",
+  "álbum", "and", "&",
+  // Adicionadas depois do bug do "me deu um branco": "concert" e "show" faziam
+  // QUALQUER sugestão de show ser tratada como repetida.
+  "concert", "concerts", "concerto", "concertos", "show", "shows", "video", "videos",
+  "vídeo", "vídeos", "mais", "more", "music", "remix", "remixes", "banda", "band",
+  "artista", "artistas", "parecido", "parecidos", "similar", "estilo", "full", "official",
 ]);
 
-function termos(consulta: string): Set<string> {
+/** Quanto tempo uma sugestão fica bloqueada, por reação. */
+const BLOQUEIO_RECUSOU_MS = 2 * 60 * 60_000; // "Agora não": 2h
+const BLOQUEIO_IGNOROU_MS = 20 * 60_000; // balão sumiu sozinho: 20 min (você pode só não ter visto)
+
+export function termos(consulta: string): Set<string> {
   return new Set(
     consulta
       .toLowerCase()
@@ -87,6 +99,13 @@ export class Memoria {
   private trechos: Trecho[] = [];
   private faixas: Faixa[] = [];
   private falas: FalaLembrada[] = [];
+
+  /** "Esquecer tudo agora" (janela de Configurações → Memória). */
+  limpar(): void {
+    this.trechos = [];
+    this.faixas = [];
+    this.falas = [];
+  }
 
   /** Chamado a CADA leitura de contexto (não só quando muda). */
   registrarContexto(c: Contexto, agora: number): void {
@@ -137,13 +156,24 @@ export class Memoria {
    */
   jaRecusou(consulta: string, agora: number): boolean {
     const nova = termos(consulta);
-    return this.falas.some(
-      (f) =>
-        f.ofereceu &&
-        (f.reacao === "recusou" || f.reacao === "ignorou") &&
-        agora - f.quando < 2 * 60 * 60_000 &&
-        [...termos(f.ofereceu)].some((t) => nova.has(t)),
-    );
+    return this.ofertasBloqueadas(agora).some((oferta) => [...termos(oferta)].some((t) => nova.has(t)));
+  }
+
+  /**
+   * Ofertas que ainda estão bloqueadas. Antes, "ignorou" bloqueava por 2h como
+   * "recusou", e o clique dava "me deu um branco": o modelo insistia na mesma
+   * sugestão, o filtro descartava as duas tentativas. Agora ignorar pesa menos.
+   */
+  private ofertasBloqueadas(agora: number): string[] {
+    return this.falas
+      .filter((f) => {
+        if (!f.ofereceu) return false;
+        const idade = agora - f.quando;
+        if (f.reacao === "recusou") return idade < BLOQUEIO_RECUSOU_MS;
+        if (f.reacao === "ignorou") return idade < BLOQUEIO_IGNOROU_MS;
+        return false;
+      })
+      .map((f) => f.ofereceu!);
   }
 
   registrarReacao(id: number, reacao: Reacao): void {
@@ -193,6 +223,11 @@ export class Memoria {
     };
 
     const ultimo = this.trechos.at(-1);
+    // Avisa o modelo ANTES, em vez de só descartar depois (o filtro jaRecusou
+    // continua como garantia, caso ele insista).
+    const bloqueadas = this.ofertasBloqueadas(agora);
+    if (bloqueadas.length) r.nao_sugerir = [...new Set(bloqueadas)];
+
     if (c.janela && ultimo && ultimo.titulo === c.janela.titulo) {
       r.min_nesta_janela = Math.floor((agora - ultimo.inicio) / 60_000);
       r.min_neste_app = this.minutosNoApp(agora)?.min;

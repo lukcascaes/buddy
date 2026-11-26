@@ -48,8 +48,7 @@ editar arquivos `.ts`/`.css` atualiza na hora e editar `.rs` recompila e reabre.
 - **Arrastar:** move o Buddy pela tela.
 - **LED na bochecha:** laranja = tudo ok · pulsando = pensando ·
   vermelho = o Ollama não responde · apagado = dormindo.
-- **Ícone na bandeja** (perto do relógio): não perturbe, abrir/recarregar
-  configuração e **Sair**.
+- **Ícone na bandeja** (perto do relógio): **Configurações…**, não perturbe e **Sair**.
 
 ### Gerar o executável otimizado
 
@@ -66,8 +65,7 @@ para montar o instalador). Para gerar só o `.exe`, sem instalador:
 ## Como trocar o modelo
 
 1. Baixe o modelo: `ollama pull llama3.2:3b` (veja os baixados com `ollama list`).
-2. Bandeja → **Abrir configuração** → troque `modelo = "llama3.2:3b"` → salve.
-3. Bandeja → **Recarregar configuração**. Não precisa reiniciar.
+2. Bandeja → **Configurações…** → **IA** → escolha na lista (vale na hora).
 
 | Modelo | Tamanho | Observação |
 |---|---|---|
@@ -76,8 +74,13 @@ para montar o instalador). Para gerar só o `.exe`, sem instalador:
 
 ## Configuração
 
-Arquivo: `%APPDATA%\com.buddy.desktop\config.toml` (criado na primeira execução,
-com comentários). Linha apagada = valor padrão. Valores inválidos são corrigidos.
+O jeito fácil é a janela **Configurações** (bandeja → Configurações…): o que eu
+vejo, memória, modo silencioso, modelo e frequência. Cada mudança vale na hora.
+
+Por baixo, tudo fica em `%APPDATA%\com.buddy.desktop\config.toml` (com
+comentários). Dá para editar à mão (opção avançada, no rodapé da janela).
+Linha apagada = valor padrão. Valores inválidos são corrigidos pelo Rust, venham
+da janela ou do arquivo.
 
 | Chave | Padrão | O que faz |
 |---|---|---|
@@ -188,12 +191,13 @@ ganha um motivo para falar mesmo sem nada mudar na tela (ex.: sugerir pausa de
 madrugada). Ainda passa pelas regras de frequência.
 
 **O código corrige o que o modelo erra** (vistos em teste, não hipotéticos):
-- sugestão de algo que você **recusou/ignorou** nas últimas 2h → descartada,
-  mesmo que o prompt já peça para não repetir;
+- sugestão de algo que você **recusou** (2h) ou **ignorou** (20 min) → o modelo
+  recebe a lista em `nao_sugerir` e, se insistir, o código descarta (comparando
+  só nomes: "show", "concert", "mix" não contam);
 - **oferta sem ação** ("quer ouvir...?" com só um botão Ok) → descartada;
 - fala com **caracteres chineses/japoneses** (o qwen às vezes escorrega) → descartada;
 - busca inventada em **marco de tempo** ("pausa para café") → ação removida;
-- no **clique**, se a resposta for descartada, ele tenta mais uma vez.
+- no **clique**, se a resposta for descartada, ele tenta até 3 vezes.
 
 Debug no console (modo dev): `buddyMemoria()` mostra exatamente o que vai ao modelo.
 
@@ -224,6 +228,10 @@ Debug no console (modo dev): `buddyMemoria()` mostra exatamente o que vai ao mod
 - Não inicia junto com o Windows.
 
 **Técnicos**
+- "Tocar no YouTube" lê a página de resultados do YouTube (sem API, sem chave)
+  e escolhe o mais assistido entre os 5 primeiros. Não é uma API oficial: se o
+  YouTube mudar a página, ele cai no plano B (abre a busca). Só abre
+  `youtube.com/watch?v=<id>` com id validado.
 - CSP desligada (`"csp": null`). Mitigado por sempre usar `textContent`, mas o
   certo é definir uma CSP restrita no `tauri.conf.json`.
 - Monitores com escalas diferentes podem desalinhar a área clicável ao arrastar.

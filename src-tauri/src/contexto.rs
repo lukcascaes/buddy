@@ -207,6 +207,32 @@ fn ler_midia() -> windows::core::Result<Option<Midia>> {
     }))
 }
 
+/// Título da mídia atual (para a ação não reabrir o mesmo vídeo). Bloqueante.
+pub fn titulo_midia() -> Option<String> {
+    ler_midia().ok().flatten().map(|m| m.titulo)
+}
+
+/// Pausa a mídia que está tocando (o mesmo que apertar pause no controle de volume).
+/// Devolve `true` se pausou algo; `false` se não havia nada tocando.
+///
+/// ÚNICA escrita que o Buddy faz no "Tocando agora", e só é chamada depois do seu
+/// "Sim" num balão que avisou "⏸ pauso a música". Bloqueante (espera o Windows):
+/// chame sempre fora da thread da janela (spawn_blocking).
+pub fn pausar_midia() -> windows::core::Result<bool> {
+    let Ok(sessao) = gerenciador_midia()?.GetCurrentSession() else {
+        return Ok(false);
+    };
+    let tocando = sessao
+        .GetPlaybackInfo()
+        .and_then(|info| info.PlaybackStatus())
+        .map(|s| s == StatusMidia::Playing)
+        .unwrap_or(false);
+    if !tocando {
+        return Ok(false);
+    }
+    sessao.TryPauseAsync()?.join()
+}
+
 /// Remove caracteres de controle (quebras de linha, etc.) e corta o tamanho.
 /// Isso NÃO resolve prompt injection sozinho (texto normal também pode conter
 /// ordens), mas impede truques de formatação e prompts gigantes.
@@ -234,6 +260,14 @@ mod testes {
             privado: false,
         };
         println!("{c:#?}");
+    }
+
+    // Pausa a música de verdade. Por isso #[ignore]: não roda no "cargo test"
+    // normal. Para rodar:  cargo test pausa -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn pausa_a_midia_tocando() {
+        println!("pausou: {:?}", pausar_midia());
     }
 
     #[test]

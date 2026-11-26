@@ -12,6 +12,8 @@ export interface Config {
   ollama_url: string;
   modelo: string;
   buscador: string;
+  /** O que o "Sim" faz com a sugestão. */
+  destino_sugestoes: "youtube_tocar" | "youtube_busca" | "web";
   intervalo_entre_falas_seg: number;
   silencio_apos_recusa_min: number;
   estabilizar_seg: number;
@@ -26,7 +28,7 @@ export function carregarConfig(): Promise<Config> {
   return invoke<Config>("get_config");
 }
 
-/** Chamado quando você usa "Recarregar configuração" na bandeja. */
+/** Chamado sempre que a config muda (salva pela janela ou recarregada do arquivo). */
 export function aoMudarConfig(cb: (c: Config) => void): Promise<() => void> {
   return listen<Config>("config-alterada", (e) => cb(e.payload));
 }
@@ -46,4 +48,34 @@ export function definirNaoPerturbe(ligado: boolean): Promise<void> {
 
 export function aoMudarNaoPerturbe(cb: (ligado: boolean) => void): Promise<() => void> {
   return listen<boolean>("nao-perturbe", (e) => cb(e.payload));
+}
+
+// ---- Usado pela janela de Configurações ----
+
+/** Salva e devolve a config COMO FICOU (o Rust pode ter corrigido valores). */
+export function salvarConfig(nova: Config): Promise<Config> {
+  return invoke<Config>("salvar_config", { nova });
+}
+
+export function recarregarConfig(): Promise<Config> {
+  return invoke<Config>("recarregar_config");
+}
+
+export function abrirArquivoConfig(): Promise<void> {
+  return invoke("abrir_arquivo_config");
+}
+
+/** Modelos baixados no Ollama. Lança erro se o Ollama estiver fora do ar. */
+export function listarModelos(): Promise<string[]> {
+  return invoke<string[]>("listar_modelos");
+}
+
+export interface ListasFixas {
+  apps: string[];
+  titulos: string[];
+}
+
+/** O que o Buddy ignora SEMPRE (embutido no Rust, só leitura). */
+export function listasPrivacidade(): Promise<ListasFixas> {
+  return invoke<ListasFixas>("listas_privacidade");
 }

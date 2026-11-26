@@ -1,0 +1,395 @@
+/* Janela de Configurações: tema escuro, creme + um laranja de destaque
+   (as mesmas cores do personagem e do mockup). */
+:root {
+  --fundo: #121212;
+  --cartao: #1b1b1b;
+  --cartao-2: #252525;
+  --borda: #2b2b2b;
+  --texto: #ececec;
+  --texto-2: #9b9b9b;
+  --destaque: #ff7849;
+  --ok: #8fbf8a;
+  --erro: #ef4444;
+  color-scheme: dark;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--fundo);
+  color: var(--texto);
+  user-select: none;
+}
+
+.app {
+  height: 100%;
+  padding: 16px;
+}
+
+.tela {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--cartao);
+  border-radius: 16px;
+  padding: 20px 20px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.tela[hidden] {
+  display: none;
+}
+
+/* ---------- Início ---------- */
+
+.logo {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.logo span {
+  color: var(--destaque);
+}
+.sub {
+  margin: 4px 0 16px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+
+.cartao-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--cartao-2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+.cartao-status strong {
+  font-size: 15px;
+}
+.cartao-status p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--texto-2);
+}
+.estado {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px !important;
+  font-size: 12px !important;
+}
+.bolinha {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--texto-2);
+}
+.bolinha.ok {
+  background: var(--ok);
+}
+.bolinha.erro {
+  background: var(--erro);
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lista li + li {
+  border-top: 1px solid var(--borda);
+}
+.linha {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 2px;
+  background: none;
+  border: none;
+  color: var(--texto);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.linha:hover .rotulo {
+  color: #fff;
+}
+.linha:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.icone {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: var(--texto-2);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rotulo {
+  flex: 1;
+}
+.valor {
+  color: var(--texto-2);
+  font-size: 13px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seta {
+  color: var(--texto-2);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Chave liga/desliga (checkbox estilizado) */
+.chave {
+  appearance: none;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #3a3a3a;
+  position: relative;
+  cursor: pointer;
+  transition: background 150ms ease;
+  margin: 0;
+}
+.chave::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #f2efe8;
+  transition: transform 150ms ease;
+}
+.chave:checked {
+  background: var(--destaque);
+}
+.chave:checked::after {
+  transform: translateX(16px);
+}
+.chave:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+}
+
+.rodape {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--borda);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--texto-2);
+}
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--texto-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link:hover {
+  color: var(--texto);
+}
+
+/* ---------- Subpáginas ---------- */
+
+.voltar {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--texto-2);
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+.voltar:hover {
+  color: var(--texto);
+}
+h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+h3 {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.explica {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--texto-2);
+}
+.explica strong {
+  color: var(--texto);
+}
+.dica {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--texto-2);
+}
+
+.fixos {
+  margin-top: 8px;
+  background: var(--cartao-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.fixos summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.chips {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #2e2e2e;
+  font-size: 12px;
+  color: var(--texto);
+}
+.chips .vazio {
+  background: none;
+  padding: 0;
+  color: var(--texto-2);
+}
+.chips button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--texto-2);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chips button:hover {
+  color: var(--erro);
+}
+
+.adicionar {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+input,
+select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--texto);
+  background: var(--cartao-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.adicionar input {
+  flex: 1;
+  user-select: text;
+}
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--destaque);
+}
+
+.adicionar button,
+.botao {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: var(--destaque);
+  color: #1b1b1b;
+  cursor: pointer;
+}
+.adicionar button:hover,
+.botao:hover {
+  filter: brightness(1.08);
+}
+.botao {
+  align-self: flex-start;
+  margin-top: 16px;
+}
+
+.fatos {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--texto-2);
+}
+.aviso {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--ok);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+.campo span {
+  color: var(--texto-2);
+}
+
+/* "Salvo" que aparece embaixo e some */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 10px);
+  background: #2e2e2e;
+  color: var(--texto);
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+.toast.visivel {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

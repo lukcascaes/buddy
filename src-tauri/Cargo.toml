@@ -13,17 +13,22 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 # serde = biblioteca padrão do Rust para converter structs <-> JSON/TOML.
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# "preserve_order": mantém as chaves do JSON na ordem original. SEM isso, o
+# esquema da resposta ia ao Ollama em ordem alfabética ("acao" antes de "fala"),
+# o modelo decidia "sem ação" ANTES de escrever a fala, e depois escrevia uma
+# oferta ("Quer ouvir X?") sem botões, que o filtro descartava. Era o
+# "me deu um branco". Achado lendo os logs do app de verdade.
+serde_json = { version = "1", features = ["preserve_order"] }
 # windows = bindings oficiais da Microsoft para as APIs do Windows.
 # Cada "feature" liga só um pedaço da API (senão a compilação levaria uma eternidade):
 #   Win32_UI_WindowsAndMessaging → GetForegroundWindow / GetWindowTextW (janela ativa)
 #   Win32_System_Threading       → OpenProcess (descobrir o .exe dono da janela)
 #   Media_Control + Foundation   → GSMTC, o "Tocando agora" do Windows (WinRT)
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Media_Control", "Foundation"] }
-# reqwest = cliente HTTP, usado para falar com o Ollama.
-# default-features = false: sem TLS/HTTPS. O Ollama é http://localhost, então não
-# precisamos (e a compilação fica bem menor).
-reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+# reqwest = cliente HTTP: Ollama (http://localhost) e a busca no YouTube (https).
+# "native-tls" = HTTPS usando o TLS do próprio Windows (Schannel): não precisa
+# compilar uma biblioteca de criptografia inteira, o build continua leve.
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "native-tls"] }
 # url = monta a URL de busca com o texto corretamente codificado (espaços, &, etc.).
 url = "2.5.9"
 # open = abre uma URL no navegador padrão do Windows.

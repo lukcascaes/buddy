@@ -117,3 +117,15 @@ mod testes {
         assert!(!texto_privado("qualquer coisa", &["  ".to_string()]));
     }
 }
+
+/// As listas embutidas, para a janela de Configurações MOSTRAR (só leitura).
+#[derive(serde::Serialize)]
+pub struct ListasFixas {
+    apps: Vec<&'static str>,
+    titulos: Vec<&'static str>,
+}
+
+#[tauri::command]
+pub fn listas_privacidade() -> ListasFixas {
+    ListasFixas { apps: APPS.to_vec(), titulos: TITULOS.to_vec() }
+}

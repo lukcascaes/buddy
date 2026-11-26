@@ -1,0 +1,8 @@
+<!-- Ícone do app (bandeja, .exe): o Buddy em repouso, recortado em quadrado.
+     Contorno mais forte que no personagem: em 16px (bandeja) um contorno fino some. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="9 7 76 76" width="1024" height="1024">
+  <path d="M13 55 C13 26 27 13 47 13 C67 13 81 26 81 55 Q81 78 47 78 Q13 78 13 55Z" fill="#F2EFE8" stroke="#171717" stroke-opacity="0.35" stroke-width="2.5"/>
+  <rect x="32" y="37" width="6" height="13" rx="3" fill="#171717"/>
+  <rect x="56" y="37" width="6" height="13" rx="3" fill="#171717"/>
+  <circle cx="69" cy="61" r="3.5" fill="#FF7849"/>
+</svg>

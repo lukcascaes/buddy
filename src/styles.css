@@ -1,0 +1,390 @@
+/*
+  IMPORTANTE: html e body precisam ter fundo transparente, senão a janela
+  "transparent: true" do Tauri aparece como um retângulo branco.
+*/
+:root {
+  --balao-fundo: #ffffff;
+  --balao-texto: #1f2937;
+  --balao-borda: rgba(0, 0, 0, 0.08);
+  /* Cor de destaque: o laranja do pontinho do personagem. */
+  --destaque: #ff7849;
+  --destaque-escuro: #e8602f;
+  --cinza-btn: #eef0f3;
+  --cinza-btn-hover: #e2e5ea;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Se o Windows estiver em modo escuro, o balão acompanha. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --balao-fundo: #1f1d2b;
+    --balao-texto: #ece9f7;
+    --balao-borda: rgba(255, 255, 255, 0.1);
+    --cinza-btn: #2d2a3d;
+    --cinza-btn-hover: #3a3650;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  /* Não deixa selecionar texto nem arrastar imagens sem querer. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Tudo ancorado no canto inferior direito da janela: balão em cima, personagem embaixo. */
+.palco {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------------- Balão ---------------- */
+
+.balao {
+  position: relative;
+  max-width: 270px;
+  padding: 12px 14px 10px;
+  border-radius: 16px;
+  background: var(--balao-fundo);
+  color: var(--balao-texto);
+  border: 1px solid var(--balao-borda);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  margin-right: 30px;
+
+  /* Escondido por padrão. Usamos opacity/transform (e não display:none)
+     para poder animar a entrada e a saída. */
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transform-origin: bottom right;
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.balao.visivel {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* "Rabinho" do balão apontando para o personagem. */
+.balao::after {
+  content: "";
+  position: absolute;
+  right: 26px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: var(--balao-fundo);
+  border-right: 1px solid var(--balao-borda);
+  border-bottom: 1px solid var(--balao-borda);
+  transform: rotate(45deg);
+}
+
+.balao-texto {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  /* Quebra palavras muito longas (ex.: título de janela gigante) em vez de estourar o balão. */
+  overflow-wrap: anywhere;
+}
+
+.balao-detalhe {
+  margin: -4px 0 10px;
+  font-size: 12px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+.balao-detalhe[hidden] {
+  display: none;
+}
+
+.balao-botoes {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    transform 80ms ease;
+}
+.btn:active {
+  transform: scale(0.96);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+}
+.btn-sim {
+  background: var(--destaque);
+  color: #fff;
+}
+.btn-sim:hover {
+  background: var(--destaque-escuro);
+}
+.btn-nao {
+  background: var(--cinza-btn);
+  color: var(--balao-texto);
+}
+.btn-nao:hover {
+  background: var(--cinza-btn-hover);
+}
+.btn[hidden] {
+  display: none;
+}
+
+/* Barra de tempo: a animação CSS É o timer. Quando ela termina, o JS
+   recebe "animationend" e esconde o balão. Com o mouse em cima, a animação
+   pausa, então o balão não some enquanto você está lendo. */
+.balao-tempo {
+  margin-top: 9px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--cinza-btn);
+  overflow: hidden;
+}
+.balao-tempo span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--destaque);
+  opacity: 0.6;
+  transform-origin: left;
+}
+.balao.contando .balao-tempo span {
+  animation: esvaziar var(--duracao, 12000ms) linear forwards;
+}
+.balao:hover .balao-tempo span {
+  animation-play-state: paused;
+}
+@keyframes esvaziar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* ---------------- Personagem ---------------- */
+
+/*
+  DESEMPENHO (medido: 3,6% de CPU parado → este é o motivo da estrutura abaixo):
+  animar `transform` em elementos DENTRO de um SVG obriga o Chromium a redesenhar
+  o SVG inteiro a cada quadro (60x por segundo). Já `transform`/`opacity` em
+  elementos HTML com `will-change` viram uma "camada" que a GPU só reposiciona,
+  sem redesenhar nada. Por isso:
+    - o flutuar anima a <div class="buddy-flutua"> (HTML), não o <g> do SVG;
+    - a sombra é uma <div> com gradiente, não uma <ellipse>;
+    - o piscar é disparado por JS de vez em quando (personagem.ts), em vez de
+      uma animação infinita que ficaria "rodando" mesmo nos 95% do tempo parados.
+  (Animações dentro do SVG só enquanto ele pensa ou fala, que é temporário.)
+
+  SEGUNDA MEDIÇÃO (Fase 4): mesmo a flutuação "barata" custava ~2-3% no processo
+  de GPU, porque uma janela TRANSPARENTE precisa ser recomposta a cada quadro do
+  monitor (60-144x por segundo) enquanto QUALQUER coisa anima. Sem animação: ~0,3%.
+  Por isso, em repouso ele fica PARADO e só flutua:
+    - enquanto pensa/fala (.pensando, .falando);
+    - um ciclo de vez em quando (.mexendo, colocada pelo personagem.ts).
+*/
+
+.buddy {
+  position: relative;
+  width: 104px;
+  height: 102px; /* corpo + sombra bem embaixo (o corpo é mais baixo que largo) */
+  cursor: grab;
+}
+
+.buddy-flutua {
+  position: absolute;
+  inset: 0 0 8px 0;
+  will-change: transform;
+}
+.buddy.mexendo .buddy-flutua,
+.buddy.pensando .buddy-flutua,
+.buddy.falando .buddy-flutua {
+  animation: flutuar 3.2s ease-in-out infinite;
+}
+.buddy-flutua svg {
+  display: block;
+  overflow: visible;
+}
+@keyframes flutuar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.buddy-sombra {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 2px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.28), transparent);
+  will-change: transform, opacity;
+}
+.buddy.mexendo .buddy-sombra,
+.buddy.pensando .buddy-sombra,
+.buddy.falando .buddy-sombra {
+  animation: sombra 3.2s ease-in-out infinite;
+}
+@keyframes sombra {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scaleX(0.82);
+    opacity: 0.55;
+  }
+}
+
+/* Piscar: o JS coloca a classe .piscando por ~150ms a cada poucos segundos. */
+.piscar {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 70ms ease-in;
+}
+.buddy.piscando .piscar {
+  transform: scaleY(0.1);
+}
+
+/* A pupila (grupo dos olhos) é movida pelo JS para olhar o mouse. */
+.pupila {
+  transition: transform 120ms ease-out;
+}
+.buddy-flutua svg {
+  margin: 0 auto;
+}
+
+/* ---- Rostos: só um aparece por vez ----
+   Usamos display (e não opacity) porque o que está escondido nem é desenhado. */
+.rosto-feliz,
+.rosto-dormindo,
+.boca {
+  display: none;
+}
+.buddy.feliz .rosto-normal,
+.buddy.dormindo .rosto-normal {
+  display: none;
+}
+.buddy.feliz .rosto-feliz,
+.buddy.dormindo .rosto-dormindo,
+.buddy.triste .boca-triste {
+  display: inline;
+}
+/* ---- LED de status (lateral do rosto) ---- */
+.status {
+  fill: var(--destaque);
+  transition: fill 300ms ease;
+}
+/* Ollama não respondeu: vermelho. Tem prioridade sobre "pensando". */
+.buddy.offline .status {
+  fill: #ef4444;
+}
+/* Dormindo: LED apagado. */
+.buddy.dormindo .status {
+  fill: #b8b4ab;
+}
+
+/* ---- Humores (classes colocadas no .buddy pelo personagem.ts) ---- */
+
+/* Pensando: olhos sobem (como quem pensa) e o LED pulsa.
+   .olhos-pos é um grupo separado da .pupila porque o JS já usa o transform
+   da .pupila para olhar o mouse; aqui somamos um deslocamento por cima. */
+.olhos-pos {
+  transition: transform 200ms ease;
+}
+.buddy.pensando .olhos-pos {
+  transform: translateY(-3px);
+}
+.buddy.pensando .status {
+  animation: pulsar 700ms ease-in-out infinite alternate;
+}
+@keyframes pulsar {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.2;
+  }
+}
+
+/* Falando: só flutua (sem boca se mexendo, por escolha de design). */
+
+/* Feliz: pulinho (na camada HTML, barato). */
+.buddy.feliz .buddy-flutua {
+  animation: pulinho 500ms ease-out 2;
+}
+@keyframes pulinho {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-14px) scale(0.95, 1.06);
+  }
+}
+
+/* Triste (quando você diz "Agora não"): murcha, olhos meio fechados, boca pra baixo. */
+.buddy.triste .buddy-flutua {
+  animation: none;
+  transform: translateY(3px) scale(1.03, 0.96);
+  transform-origin: 50% 100%;
+  transition: transform 300ms ease;
+}
+.buddy.triste .piscar {
+  transform: scaleY(0.6);
+}
+
+/* Dormindo (modo "não perturbe"): rosto de dormindo e meio transparente. */
+.buddy.dormindo {
+  opacity: 0.7;
+  transition: opacity 400ms ease;
+}
+.buddy.dormindo .buddy-flutua,
+.buddy.dormindo .buddy-sombra {
+  animation-duration: 6s;
+}
+
+/* Respeita quem desativou animações no Windows (Acessibilidade > Efeitos visuais). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  /* Exceção: a barra do balão é um timer, não enfeite. Sem isto, o balão
+     sumiria instantaneamente para quem usa "reduzir movimento". */
+  .balao.contando .balao-tempo span {
+    animation-duration: var(--duracao, 12000ms) !important;
+  }
+}

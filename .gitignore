@@ -1,0 +1,7 @@
+node_modules/
+dist/
+
+# Saída de compilação do Rust (fica enorme, vários GB)
+src-tauri/target/
+# Gerado automaticamente pelo Tauri a cada build
+src-tauri/gen/schemas/
